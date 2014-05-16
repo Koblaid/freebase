@@ -5,6 +5,7 @@ import sqlite3
 import requests
 
 
+
 def try_up_to_x_times(retries, func, *args, **kwargs):
     for i in range(retries):
         try:
@@ -61,110 +62,44 @@ def fetch_all_people():
         index += 1
 
 
-def import_data():
-    with open('people.json') as f:
-        data = json.load(f)
-    raw_people = data['result']
+def import_into_sqlite():
+    conn = sqlite3.connect('db.sqlite')
 
-    people = {}
-    for p in raw_people:
-        name = p['name']
-        people[name] = {
-            'name': name,
-            'parents': [],
-            'children': [],
-        }
+    # Enable foreign keys in sqlite
+    curs = conn.execute('PRAGMA foreign_keys = ON')
 
-    for p in raw_people:
-        for parent_name in p.get('parents', []):
-            parent = people.get(parent_name)
-            if parent:
-                person = people[p['name']]
-                person['parents'].append(parent)
-                parent['children'].append(person)
+    # Execute the create script
+    sql = open('schema.sql').read()
+    conn.executescript(sql)
 
-            else:
-                print('no parents', p['name'])
+    cur = conn.cursor()
+    freebase_id_to_db_id = {}
+    for filename in sorted(os.listdir('json')):
+        print('Inserting persons:', filename)
+        with open('json/' + filename) as f:
+            content = json.load(f)['result']
+            for person in content:
+                cur.execute('INSERT INTO person (name, gender, freebase_id) VALUES (?, ?, ?)',
+                            (person['name'], person['gender'], person['id']))
+                freebase_id_to_db_id[person['id']] = cur.lastrowid
 
-    return people
+    for filename in sorted(os.listdir('json')):
+        print('Inserting relationships:', filename)
+        with open('json/' + filename) as f:
+            content = json.load(f)['result']
+            for person in content:
+                for parent in person['parents']:
+                    if parent['id'] not in freebase_id_to_db_id:
+                        print(parent)
+                    else:
+                        cur.execute('INSERT INTO child (parent_id, child_id) VALUES (?, ?)',
+                                    (freebase_id_to_db_id[parent['id']], freebase_id_to_db_id[person['id']]))
 
-
-def count_generations(person):
-    print(person['name'], len(person['parents']), person)
-    return
-    if person['parents']:
-        counts = [0]
-        for parent in person['parents']:
-            counts.append(count_generations(parent))
-        return max(counts)
-    else:
-        return 1
+    conn.commit()
+    conn.close()
 
 
-def analyze(people):
-    no_children = 0
-    no_parents = 0
-
-    for p in people.itervalues():
-        no_children += len(p['children'])
-        no_parents += len(p['parents'])
-
-
-    family_count = 0
-    for name, person_dict in people.iteritems():
-        if person_dict['children'] and not person_dict['parents']:
-            family_count += 1
-            #print name, person_dict['children'][0]
-
-    for name, person_dict in people.iteritems():
-        if not person_dict['children'] and person_dict['parents']:
-            print(name, count_generations(person_dict))
-
-    print(len(people), no_children, no_parents, family_count)
-
-
-#fetch_people()
-#people = import_data()
-#analyze(people)
-
-'''
-die meisten nachkommen
-groester zusammenhaengender baum
-'''
-
-'''import freebase
-
-session = freebase.HTTPMetawebSession("https://www.googleapis.com")
-res = session.mqlread([{
-  "name": None,
-  "parents": [],
-  "type": "/people/person"
-}])
-
-print res
-'''
-
-
-def read_file():
-    with open('people.json') as f:
-        data = json.load(f)
-
-    people = {}
-    for p in data['result']:
-        people[p['id']] = p
-
-    for p_id, p in people.items():
-        for parent in p['parents']:
-            if parent['id'] in people:
-                people[parent['id']].setdefault('children', []).append(p)
-
-    print(len(people))
-    return people
-
-
-
-
-def read_files():
+def read_files_into_memory():
     all_people = {}
     for filename in sorted(os.listdir('json')):
         print(filename)
@@ -173,17 +108,15 @@ def read_files():
             for person in content:
                 all_people[person['id']] = person
 
-    print(len(all_people))
-    return all_people
-
-
-def add_children(people):
     for person in people.values():
         for parent in person['parents']:
             if parent['id'] in people:
                 people[parent['id']].setdefault('children', []).append(person['id'])
             else:
                 print('missing person: [%s] %s' % (parent['id'], parent['name']))
+
+    print(len(all_people))
+    return all_people
 
 
 def get_children(people, person, generation, stack):
@@ -223,45 +156,5 @@ def make_generation_dot(people):
         f.write('}')
 
 
-
-
-def import_into_sqlite(people):
-    conn = sqlite3.connect('db.sqlite')
-
-    # Enable foreign keys in sqlite
-    curs = conn.execute('PRAGMA foreign_keys = ON')
-
-    # Execute the create script
-    sql = open('schema.sql').read()
-    conn.executescript(sql)
-
-    cur = conn.cursor()
-
-    for person_id, person in people.items():
-        cur.execute('INSERT INTO person (name, gender, freebase_id) VALUES (?, ?, ?)',
-                    (person['name'], person['gender'], person_id))
-        person['db_id'] = cur.lastrowid
-
-    for person_id, person in people.items():
-        for parent in person['parents']:
-            if parent['id'] not in people:
-                print(parent)
-            else:
-                cur.execute('INSERT INTO child (parent_id, child_id) VALUES (?, ?)',
-                            (people[parent['id']]['db_id'], person['db_id']))
-
-    conn.commit()
-    conn.close()
-
 #fetch_all_people()
-
-people = read_files()
-import_into_sqlite(people)
-print('files read')
-
-
-#add_children(people)
-#print('children added')
-#import sys; sys.setrecursionlimit(20000)
-#get_generations(people)
-#make_generation_dot(people)
+import_into_sqlite()
