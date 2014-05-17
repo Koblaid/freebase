@@ -280,8 +280,40 @@ def write_generations_into_db(persons, generations):
     conn.commit()
 
 
+def start_image_server():
+    import flask
+    app = flask.Flask(__name__)
+
+    @app.route('/')
+    def index():
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('select f.id, f.num_generations, p.name from family f join person p on f.ancestor_id = p.id order by f.num_generations desc')
+        res = ''
+        for img_id, num_generations, name in cur:
+            res += '<a href="/img/%s">%s [%s]</a><br>' % (img_id, name, num_generations)
+        return res
+
+    @app.route('/img/<family_id>')
+    def img(family_id):
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('select image from family where id = ?', (family_id,))
+        img_data = cur.fetchone()[0]
+
+        resp = flask.make_response(img_data)
+        resp.content_type = "image/png"
+        return resp
+
+
+    app.run(debug=True)
+
 #fetch_all_people()
 #import_into_sqlite()
 persons = read_db_into_memory()
 import pprint
 pprint.pprint(generate_statistics(persons))
+
+import sys
+if len(sys.argv) > 1 and sys.argv[1] == 'server':
+    start_image_server()
