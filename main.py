@@ -187,5 +187,45 @@ def make_generation_dot(people):
         f.write('}')
 
 
+def generate_statistics(persons):
+    without_parents = 0
+    without_children = 0
+    without_relatives = 0
+    with_children = 0
+    with_parents = 0
+    max_children = 0
+    max_parents = 0
+    for p in persons.values():
+        if not p.parents and not p.children:
+            without_relatives += 1
+            continue
+
+        if not p.parents:
+            without_parents += 1
+        else:
+            with_parents += 1
+            max_parents = max(len(p.parents), max_parents)
+
+        if not p.children:
+            without_children += 1
+        else:
+            with_children += 1
+            max_children = max(len(p.children), max_children)
+
+    return dict(
+        total_number_of_persons=len(persons),
+        number_of_persons_without_relatives=without_relatives,
+        number_of_persons_without_children=without_children,
+        number_of_persons_without_parents=without_parents,
+        max_number_children=max_children,
+        max_number_parents=max_parents,
+        number_of_persons_with_parents=with_parents,
+        number_of_persons_with_children=with_children,
+    )
+
+
 #fetch_all_people()
-import_into_sqlite()
+#import_into_sqlite()
+persons = read_db_into_memory()
+import pprint
+pprint.pprint(generate_statistics(persons))
