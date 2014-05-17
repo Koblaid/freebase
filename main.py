@@ -124,6 +124,14 @@ def read_files_into_memory():
     return all_people
 
 
+class Person:
+    def __init__(self, db_id, name):
+        self.db_id = db_id
+        self.name = name
+        self.children = []
+        self.parents = []
+
+
 def get_children(people, person, generation, stack):
     stack += 1
     if stack > 900:
