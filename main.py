@@ -132,17 +132,22 @@ class Person:
         self.parents = []
 
 
-def read_db_into_memory():
+def read_db_into_memory(skip_persons_without_name=True):
     persons = {}
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('select id, name from person')
+    stmt = 'select id, name from person'
+    if skip_persons_without_name:
+        stmt += ' where name is not null'
+    cur.execute(stmt)
     for db_id, name in cur:
         person = Person(db_id, name)
         persons[db_id] = person
 
     cur.execute('select parent_id, child_id from child')
     for parent_id, child_id in cur:
+        if not parent_id in persons or not child_id in persons:
+            continue
         parent = persons[parent_id]
         child = persons[child_id]
         parent.children.append(child)
