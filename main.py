@@ -229,6 +229,34 @@ def generate_statistics(persons):
     )
 
 
+def extract_generations(persons):
+    generations = {}
+    ancestor_counter = 0
+    skips = 0
+    for ancestor in persons.values():
+        if not ancestor.parents:
+            ancestor_counter += 1
+            generation_counter = 0
+            generation = []
+
+            # avoid max recursion depth
+            persons_to_process = [ancestor]
+            while persons_to_process:
+                generation_counter += 1
+                if generation_counter > 1000:
+                    skips += 1
+                    break
+                person = persons_to_process.pop()
+                for child in person.children:
+                    generation.append([person.db_id, child.db_id])
+                    persons_to_process.append(child)
+
+            if generation and generation_counter <= 1000:
+                generations[ancestor.db_id] = generation
+    print(skips)
+    return generations
+
+
 #fetch_all_people()
 #import_into_sqlite()
 persons = read_db_into_memory()
