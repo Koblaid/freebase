@@ -3,6 +3,7 @@ import os
 import sqlite3
 
 import requests
+import graphviz
 
 
 
@@ -255,6 +256,28 @@ def extract_generations(persons):
                 generations[ancestor.db_id] = generation
     print(skips)
     return generations
+
+
+def write_generations_into_db(persons, generations):
+    counter = 0
+    conn = get_db_connection()
+    cur = conn.cursor()
+    for ancestor_id, generation in generations.items():
+        counter += 1
+        print('%s / %s (%s%%)' % (counter, len(generations), counter*100/len(generations)))
+
+        dot = graphviz.Digraph(format='png')
+        for parent_id, child_id in generation:
+             parent_name = persons[parent_id].name
+             child_name = persons[child_id].name
+             dot.node(str(parent_id), parent_name)
+             dot.node(str(child_id), child_name)
+             dot.edge(str(parent_id), str(child_id))
+        dot.render('generation')
+        with open('generation.png', 'rb') as f:
+            stmt = 'insert into family (ancestor_id, num_generations, image) values (?, ?, ?)'
+            cur.execute(stmt, (ancestor_id, len(generation), f.read()))
+    conn.commit()
 
 
 #fetch_all_people()
