@@ -132,6 +132,24 @@ class Person:
         self.parents = []
 
 
+def read_db_into_memory():
+    persons = {}
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('select id, name from person')
+    for db_id, name in cur:
+        person = Person(db_id, name)
+        persons[db_id] = person
+
+    cur.execute('select parent_id, child_id from child')
+    for parent_id, child_id in cur:
+        parent = persons[parent_id]
+        child = persons[child_id]
+        parent.children.append(child)
+        child.parents.append(parent)
+    return persons
+
+
 def get_children(people, person, generation, stack):
     stack += 1
     if stack > 900:
