@@ -62,11 +62,16 @@ def fetch_all_people():
         index += 1
 
 
-def import_into_sqlite():
+def get_db_connection():
     conn = sqlite3.connect('db.sqlite')
 
     # Enable foreign keys in sqlite
-    curs = conn.execute('PRAGMA foreign_keys = ON')
+    conn.execute('PRAGMA foreign_keys = ON')
+    return conn
+
+
+def import_into_sqlite():
+    conn = get_db_connection()
 
     # Execute the create script
     sql = open('schema.sql').read()
