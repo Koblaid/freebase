@@ -98,7 +98,7 @@ def import_into_sqlite():
                     if parent['id'] not in freebase_id_to_db_id:
                         print(parent)
                     else:
-                        cur.execute('INSERT INTO child (parent_id, child_id) VALUES (?, ?)',
+                        cur.execute('INSERT INTO parent_child (parent_id, child_id) VALUES (?, ?)',
                                     (freebase_id_to_db_id[parent['id']], freebase_id_to_db_id[person['id']]))
 
     conn.commit()
@@ -145,7 +145,7 @@ def read_db_into_memory(skip_persons_without_name=True):
         person = Person(db_id, name)
         persons[db_id] = person
 
-    cur.execute('select parent_id, child_id from child')
+    cur.execute('select parent_id, child_id from parent_child')
     for parent_id, child_id in cur:
         if not parent_id in persons or not child_id in persons:
             continue

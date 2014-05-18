@@ -4,7 +4,7 @@ CREATE TABLE person (
     freebase_id TEXT NOT NULL
 );
 
-CREATE TABLE child (
+CREATE TABLE parent_child (
     parent_id INTEGER NOT NULL,
     child_id INTEGER NOT NULL,
     FOREIGN KEY(parent_id) REFERENCES person(id),
