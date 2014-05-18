@@ -258,7 +258,7 @@ def extract_generations(persons):
     return generations
 
 
-def write_generations_into_db(persons, generations):
+def write_families_into_db(persons, generations):
     counter = 0
     conn = get_db_connection()
     cur = conn.cursor()
