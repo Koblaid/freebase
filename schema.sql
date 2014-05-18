@@ -5,6 +5,7 @@ CREATE TABLE person (
 );
 
 CREATE TABLE parent_child (
+    id INTEGER PRIMARY KEY,
     parent_id INTEGER NOT NULL,
     child_id INTEGER NOT NULL,
     FOREIGN KEY(parent_id) REFERENCES person(id),
