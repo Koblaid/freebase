@@ -271,32 +271,16 @@ def start_image_server():
 
     @app.route('/')
     def index():
-        conn = get_db_connection()
-        cur = conn.cursor()
+        cur = get_db_connection().cursor()
         cur.execute('''
-        select
-            f.id, f.max_generation_depth, p.name, count(f.id) as person_count
+        select f.id, f.max_generation_depth, p.name, count(f.id) as person_count
         from family f
         join person p on f.ancestor_id = p.id
         join family_member fm on f.id = fm.family_id
         group by f.id
         having person_count > 2
         order by f.max_generation_depth desc, person_count desc''')
-        res = '<table>'
-        res += '<tr>'
-        res += '<th>Personen</th>'
-        res += '<th>Generationen</th>'
-        res += '<th>Stammvater/-mutter</th>'
-        for family_id, max_generation_depth, name, person_count in cur:
-            # add the ancestor
-            person_count += 1
-            res += '<tr>'
-            res += '<td>%s</td>' % (person_count + 1)
-            res += '<td>%s</td>' % max_generation_depth
-            res += '<td><a href="/familytree/%s">%s</a></td>' % (family_id, name)
-            res += '<tr>'
-        res += '</table>'
-        return res
+        return flask.render_template('index.html', rows=cur)
 
     @app.route('/familytree/<family_id>')
     def familytree(family_id):

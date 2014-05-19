@@ -1,0 +1,16 @@
+<table>
+  <tr>
+    <th>Persons</th>
+    <th>Generations</th>
+    <th>Ancestor</th>
+  </tr>
+
+  {% for family_id, max_generation_depth, name, person_count in rows %}
+    <tr>
+      <td>{{ person_count + 1 }}</td>
+      <td>{{ max_generation_depth }}</td>
+      <td><a href="/familytree/{{ family_id }}">{{ name }}</a></td>
+    </tr>
+  {% endfor %}
+
+</table>
