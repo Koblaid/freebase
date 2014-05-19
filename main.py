@@ -284,7 +284,7 @@ def start_image_server():
 
     @app.route('/familytree/<family_id>')
     def familytree(family_id):
-        return flask.render_template('mega.html')
+        return flask.render_template('familytree.html')
 
     @app.route('/json/familytree/<family_id>')
     def json_familytree(family_id):
