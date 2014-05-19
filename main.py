@@ -246,7 +246,9 @@ def extract_generations(persons):
         if not ancestor.parents:
             generation_counter = 0
             max_generation_depth = 1
-            generation = []
+
+            # Use a set to prevent that the same relationship is added twice
+            generation = set()
 
             contained_persons = {}
 
@@ -263,7 +265,7 @@ def extract_generations(persons):
                     child = relationship.child
                     contained_persons[person.db_id] = person.name
                     contained_persons[child.db_id] = child.name
-                    generation.append(relationship)
+                    generation.add(relationship)
                     persons_to_process.append((child, current_generation_depth+1))
 
             if len(generation) > 0:
