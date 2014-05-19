@@ -137,12 +137,34 @@ class Person:
         self.children = []
         self.parents = []
 
+    def get_parents(self):
+        return (rel.parent for rel in self.parents)
+
+    def get_children(self):
+        return (rel.child for rel in self.children)
+
+    def remove_parent(self, parent):
+        for rel in self.parents:
+            if rel.parent is parent:
+                rel.remove()
+        return rel
+
+    def remove_child(self, child):
+        for rel in self.children:
+            if rel.child is child:
+                rel.remove()
+        return rel
+
 
 class Parent_Child_Relationship:
     def __init__(self, db_id, parent, child):
         self.db_id = db_id
         self.parent = parent
         self.child = child
+
+    def remove(self):
+        self.parent.children.remove(self)
+        self.child.parents.remove(self)
 
 
 def read_db_into_memory():
@@ -240,6 +262,7 @@ def generate_statistics(persons):
 
 
 def extract_generations(persons):
+    invalid_relationships = []
     generations = {}
     skips = 0
     for ancestor in persons.values():
@@ -263,6 +286,12 @@ def extract_generations(persons):
                 for relationship in person.children:
                     max_generation_depth = max(max_generation_depth, current_generation_depth)
                     child = relationship.child
+
+                    if child in person.get_parents():
+                        # Invalid relationship: A person is the child _and_ the parent of another person
+                        rel = child.remove_parent(person)
+                        invalid_relationships.append(rel)
+
                     contained_persons[person.db_id] = person.name
                     contained_persons[child.db_id] = child.name
                     generation.add(relationship)
@@ -272,7 +301,7 @@ def extract_generations(persons):
                 generations[ancestor.db_id] = (max_generation_depth, generation)
 
     print(skips)
-    return generations
+    return generations, invalid_relationships
 
 
 def write_families_into_db(generations):
