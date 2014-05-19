@@ -276,26 +276,29 @@ def extract_generations(persons):
             contained_persons = {}
 
             # start with depth 2 to account for the ancestor and the latest child
-            persons_to_process = [(ancestor, 2)]
+            persons_to_process = [(ancestor, set([ancestor]), 2)]
             while persons_to_process:
                 generation_counter += 1
                 if generation_counter > 10000:
                     skips += 1
                     break
-                person, current_generation_depth = persons_to_process.pop()
+                person, parents, current_generation_depth = persons_to_process.pop()
+                parents.add(person)
                 for relationship in person.children:
                     max_generation_depth = max(max_generation_depth, current_generation_depth)
                     child = relationship.child
 
-                    if child in person.get_parents():
-                        # Invalid relationship: A person is the child _and_ the parent of another person
-                        rel = child.remove_parent(person)
-                        invalid_relationships.append(rel)
+                    # Check if a person is the parent of one of its ancestors
+                    for grand_child in child.get_children():
+                        if grand_child in parents:
+                            rel = child.remove_child(grand_child)
+                            invalid_relationships.append(rel)
 
                     contained_persons[person.db_id] = person.name
                     contained_persons[child.db_id] = child.name
-                    generation.add(relationship)
-                    persons_to_process.append((child, current_generation_depth+1))
+                    if relationship not in generation:
+                        generation.add(relationship)
+                        persons_to_process.append((child, parents.copy(), current_generation_depth+1))
 
             if len(generation) > 0:
                 generations[ancestor.db_id] = (max_generation_depth, generation)
