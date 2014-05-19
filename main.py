@@ -110,26 +110,6 @@ def import_into_sqlite():
     conn.close()
 
 
-def read_files_into_memory():
-    all_people = {}
-    for filename in sorted(os.listdir('json')):
-        print(filename)
-        with open('json/' + filename) as f:
-            content = json.load(f)['result']
-            for person in content:
-                all_people[person['id']] = person
-
-    for person in people.values():
-        for parent in person['parents']:
-            if parent['id'] in people:
-                people[parent['id']].setdefault('children', []).append(person['id'])
-            else:
-                print('missing person: [%s] %s' % (parent['id'], parent['name']))
-
-    print(len(all_people))
-    return all_people
-
-
 class Person:
     def __init__(self, db_id, name):
         self.db_id = db_id
@@ -185,43 +165,6 @@ def read_db_into_memory():
         parent.children.append(relationship)
         child.parents.append(relationship)
     return persons
-
-
-def get_children(people, person, generation, stack):
-    stack += 1
-    if stack > 900:
-        print(person)
-        return
-
-    for child_id in person.get('children', []):
-        child = people[child_id]
-        generation.append(child['name'] or child['id'])
-        get_children(people, child, generation, stack)
-
-
-def get_generations(people):
-    with open('generations.csv', 'w') as f:
-        for p_id, p in people.items():
-            if not p['parents']:
-                generation = []
-                get_children(people, p, generation, 0)
-                if len(generation) > 0:
-                    f.write('%s;%s\n'%(len(generation), ','.join(generation)))
-
-
-def make_generation_dot(people):
-    with open('generations.dot', 'w') as f:
-        f.write('digraph graphname {\n')
-        for person_id, person in people.items():
-            if person['parents'] or person.get('children'):
-                name = person['name'].replace("'", "").replace('"', "") if person['name'] else 'XXX'
-                f.write('"%s"[label="%s"];\n'%(person_id, name))
-
-        for person_id, person in people.items():
-            for child_id in person.get('children', []):
-                f.write('"%s"-> "%s";\n'%(person_id, child_id))
-
-        f.write('}')
 
 
 def generate_statistics(persons):
@@ -395,18 +338,6 @@ def start_image_server():
 
 
     app.run(debug=True, host='0.0.0.0')
-
-
-def json_to_dot():
-    json_data = json.load(open('testgen-with-names.json'))
-    with open('testgen-with-names__with-explicit-nodes.dot', 'w') as f_out:
-        f_out.write('digraph {\n')
-        for node_id, label in json_data['nodes'].items():
-            f_out.write('%s [label="%s"];' % (node_id, label.replace(' ', '\n')))
-
-        for parent_id, child_id in json_data['edges']:
-            f_out.write('%s -> %s;' % (parent_id, child_id))
-        f_out.write('}')
 
 
 import sys
