@@ -264,7 +264,6 @@ def generate_statistics(persons):
 def extract_generations(persons):
     invalid_relationships = []
     generations = {}
-    skips = 0
     for ancestor in persons.values():
         if not ancestor.parents:
             generation_counter = 0
@@ -279,9 +278,7 @@ def extract_generations(persons):
             persons_to_process = [(ancestor, set([ancestor]), 2)]
             while persons_to_process:
                 generation_counter += 1
-                if generation_counter > 10000:
-                    skips += 1
-                    break
+
                 person, parents, current_generation_depth = persons_to_process.pop()
                 parents.add(person)
                 for relationship in person.children:
@@ -303,7 +300,6 @@ def extract_generations(persons):
             if len(generation) > 0:
                 generations[ancestor.db_id] = (max_generation_depth, generation)
 
-    print(skips)
     return generations, invalid_relationships
 
 
