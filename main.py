@@ -133,26 +133,30 @@ class Person:
         self.parents = []
 
 
-def read_db_into_memory(skip_persons_without_name=True):
+class Parent_Child_Relationship:
+    def __init__(self, db_id, parent, child):
+        self.db_id = db_id
+        self.parent = parent
+        self.child = child
+
+
+def read_db_into_memory():
     persons = {}
     conn = get_db_connection()
     cur = conn.cursor()
     stmt = 'select id, name from person'
-    if skip_persons_without_name:
-        stmt += ' where name is not null'
     cur.execute(stmt)
     for db_id, name in cur:
         person = Person(db_id, name)
         persons[db_id] = person
 
-    cur.execute('select parent_id, child_id from parent_child')
-    for parent_id, child_id in cur:
-        if not parent_id in persons or not child_id in persons:
-            continue
+    cur.execute('select id, parent_id, child_id from parent_child')
+    for db_id, parent_id, child_id in cur:
         parent = persons[parent_id]
         child = persons[child_id]
-        parent.children.append(child)
-        child.parents.append(parent)
+        relationship = Parent_Child_Relationship(db_id, parent, child)
+        parent.children.append(relationship)
+        child.parents.append(relationship)
     return persons
 
 
@@ -232,51 +236,57 @@ def generate_statistics(persons):
 
 def extract_generations(persons):
     generations = {}
-    ancestor_counter = 0
     skips = 0
     for ancestor in persons.values():
+        if ancestor.db_id != 1496890:
+            continue
         if not ancestor.parents:
-            ancestor_counter += 1
             generation_counter = 0
+            max_generation_depth = 1
             generation = []
 
-            # avoid max recursion depth
-            persons_to_process = [ancestor]
+            contained_persons = {}
+
+            # start with depth 2 to account for the ancestor and the latest child
+            persons_to_process = [(ancestor, 2)]
             while persons_to_process:
                 generation_counter += 1
-                if generation_counter > 1000:
+                if generation_counter > 10000:
                     skips += 1
                     break
-                person = persons_to_process.pop()
-                for child in person.children:
-                    generation.append([person.db_id, child.db_id])
-                    persons_to_process.append(child)
+                person, current_generation_depth = persons_to_process.pop()
+                for relationship in person.children:
+                    print(person.name, current_generation_depth)
+                    max_generation_depth = max(max_generation_depth, current_generation_depth)
+                    child = relationship.child
+                    contained_persons[person.db_id] = person.name
+                    contained_persons[child.db_id] = child.name
+                    generation.append(relationship)
+                    persons_to_process.append((child, current_generation_depth+1))
 
-            if generation and generation_counter <= 1000:
-                generations[ancestor.db_id] = generation
+            if len(generation) > 0:
+                generations[ancestor.db_id] = (max_generation_depth, generation)
+
     print(skips)
     return generations
 
 
-def write_families_into_db(persons, generations):
+def write_families_into_db(generations):
     counter = 0
     conn = get_db_connection()
     cur = conn.cursor()
-    for ancestor_id, generation in generations.items():
+    for ancestor_id, (max_depth, relationships) in generations.items():
         counter += 1
         print('%s / %s (%s%%)' % (counter, len(generations), counter*100/len(generations)))
 
-        dot = graphviz.Digraph(format='png')
-        for parent_id, child_id in generation:
-             parent_name = persons[parent_id].name
-             child_name = persons[child_id].name
-             dot.node(str(parent_id), parent_name)
-             dot.node(str(child_id), child_name)
-             dot.edge(str(parent_id), str(child_id))
-        dot.render('generation')
-        with open('generation.png', 'rb') as f:
-            stmt = 'insert into family (ancestor_id, num_generations, image) values (?, ?, ?)'
-            cur.execute(stmt, (ancestor_id, len(generation), f.read()))
+        stmt = 'insert into family (ancestor_id, max_generation_depth) values (?, ?)'
+        cur.execute(stmt, (ancestor_id, max_depth))
+        family_id = cur.lastrowid
+
+        for relationship in relationships:
+            stmt = 'insert into family_member (family_id, parent_child_id) values (?, ?)'
+            cur.execute(stmt, (family_id, relationship.db_id))
+
     conn.commit()
 
 
@@ -288,31 +298,84 @@ def start_image_server():
     def index():
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute('select f.id, f.num_generations, p.name from family f join person p on f.ancestor_id = p.id order by f.num_generations desc')
-        res = ''
-        for img_id, num_generations, name in cur:
-            res += '<a href="/img/%s">%s [%s]</a><br>' % (img_id, name, num_generations)
+        cur.execute('''
+        select
+            f.id, f.max_generation_depth, p.name, count(f.id) as person_count
+        from family f
+        join person p on f.ancestor_id = p.id
+        join family_member fm on f.id = fm.family_id
+        group by f.id
+        having person_count > 2
+        order by f.max_generation_depth desc, person_count desc''')
+        res = '<table>'
+        res += '<tr>'
+        res += '<th>Personen</th>'
+        res += '<th>Generationen</th>'
+        res += '<th>Stammvater/-mutter</th>'
+        for family_id, max_generation_depth, name, person_count in cur:
+            # add the ancestor
+            person_count += 1
+            res += '<tr>'
+            res += '<td>%s</td>' % (person_count + 1)
+            res += '<td>%s</td>' % max_generation_depth
+            res += '<td><a href="/familytree/%s">%s</a></td>' % (family_id, name)
+            res += '<tr>'
+        res += '</table>'
         return res
 
-    @app.route('/img/<family_id>')
-    def img(family_id):
+    @app.route('/familytree/<family_id>')
+    def familytree(family_id):
+        return flask.render_template('mega.html')
+
+    @app.route('/json/familytree/<family_id>')
+    def json_familytree(family_id):
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute('select image from family where id = ?', (family_id,))
-        img_data = cur.fetchone()[0]
+        cur.execute('''
+        select
+            p_parent.id, p_parent.name, p_child.id, p_child.name
+        from family f
+        join family_member fm on f.id = fm.family_id
+        join parent_child pc on pc.id = fm.parent_child_id
+        join person p_parent on p_parent.id = pc.parent_id
+        join person p_child on p_child.id = pc.child_id
+        where f.id = ?;''', (family_id,))
+        persons = {}
+        edges = []
+        for parent_id, parent_name, child_id, child_name in cur:
+            persons[parent_id] = parent_name.replace(' ', '\n')
+            persons[child_id] = child_name.replace(' ', '\n')
+            edges.append(dict(u=parent_id, v=child_id))
 
-        resp = flask.make_response(img_data)
-        resp.content_type = "image/png"
-        return resp
+        nodes = []
+        for person_id, name in persons.items():
+            nodes.append(dict(id=person_id, value=dict(label=name)))
+        return flask.jsonify(dict(nodes=nodes, edges=edges))
 
 
-    app.run(debug=True)
+    @app.route('/mega')
+    def mega():
+        return flask.render_template('mega.html')
 
-#fetch_all_people()
-#import_into_sqlite()
-persons = read_db_into_memory()
-import pprint
-pprint.pprint(generate_statistics(persons))
+    @app.route('/megajson')
+    def megajson():
+        return flask.jsonify(json.load(open('testgen-with-names.json')))
+
+
+    app.run(debug=True, host='0.0.0.0')
+
+
+def json_to_dot():
+    json_data = json.load(open('testgen-with-names.json'))
+    with open('testgen-with-names__with-explicit-nodes.dot', 'w') as f_out:
+        f_out.write('digraph {\n')
+        for node_id, label in json_data['nodes'].items():
+            f_out.write('%s [label="%s"];' % (node_id, label.replace(' ', '\n')))
+
+        for parent_id, child_id in json_data['edges']:
+            f_out.write('%s -> %s;' % (parent_id, child_id))
+        f_out.write('}')
+
 
 import sys
 if len(sys.argv) > 1 and sys.argv[1] == 'server':
