@@ -243,8 +243,6 @@ def extract_generations(persons):
     generations = {}
     skips = 0
     for ancestor in persons.values():
-        if ancestor.db_id != 1496890:
-            continue
         if not ancestor.parents:
             generation_counter = 0
             max_generation_depth = 1
@@ -261,7 +259,6 @@ def extract_generations(persons):
                     break
                 person, current_generation_depth = persons_to_process.pop()
                 for relationship in person.children:
-                    print(person.name, current_generation_depth)
                     max_generation_depth = max(max_generation_depth, current_generation_depth)
                     child = relationship.child
                     contained_persons[person.db_id] = person.name
