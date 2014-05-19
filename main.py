@@ -4,7 +4,6 @@ import sqlite3
 from pprint import pprint
 
 import requests
-import graphviz
 
 
 
