@@ -1,6 +1,7 @@
 import ujson as json
 import os
 import sqlite3
+from pprint import pprint
 
 import requests
 import graphviz
@@ -89,6 +90,7 @@ def import_into_sqlite():
                             (person['name'], person['gender'], person['id']))
                 freebase_id_to_db_id[person['id']] = cur.lastrowid
 
+    unimportable_parents = []
     for filename in sorted(os.listdir('json')):
         print('Inserting relationships:', filename)
         with open('json/' + filename) as f:
@@ -97,10 +99,13 @@ def import_into_sqlite():
                 for parent in person['parents']:
                     if parent['id'] not in freebase_id_to_db_id:
                         print(parent)
+                        unimportable_parents.append(parent)
                     else:
                         cur.execute('INSERT INTO parent_child (parent_id, child_id) VALUES (?, ?)',
                                     (freebase_id_to_db_id[parent['id']], freebase_id_to_db_id[person['id']]))
 
+    print('unimportable parents:')
+    pprint(unimportable_parents)
     conn.commit()
     conn.close()
 
