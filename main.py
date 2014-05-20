@@ -2,6 +2,7 @@ import ujson as json
 import os
 import sqlite3
 from pprint import pprint
+from collections import Counter
 
 import requests
 
@@ -271,6 +272,63 @@ def start_image_server():
     @app.route('/')
     def index():
         cur = get_db_connection().cursor()
+        cur.execute('select gender, count(*) from person group by gender')
+        rows = cur.fetchall()
+        total = sum((row[1] for row in rows))
+        gender_distribution = {}
+        for gender, count in rows:
+            gender_distribution[gender] = round(count*100/total)
+
+        cur.execute('select count(*) from person')
+        person_count = cur.fetchone()[0]
+
+        distribution_of_family_size = Counter()
+        cur.execute('select count(f.id) as cnt from family f join family_member fm on f.id = fm.family_id group by f.id')
+        rows = cur.fetchall()
+
+        max_family_size = 0
+        for (count, ) in rows:
+            max_family_size = max(max_family_size, count)
+            if count <= 10:
+                distribution_of_family_size[count] += 1
+            elif count <= 15:
+                distribution_of_family_size['10-15'] += 1
+            elif count <= 20:
+                distribution_of_family_size['15-20'] += 1
+            elif count <= 50:
+                distribution_of_family_size['20-50'] += 1
+            elif count <= 100:
+                distribution_of_family_size['50-100'] += 1
+            elif count <= 200:
+                distribution_of_family_size['100-200'] += 1
+            elif count <= 500:
+                distribution_of_family_size['200-500'] += 1
+            elif count <= 1000:
+                distribution_of_family_size['500-1000'] += 1
+            elif count <= 2000:
+                distribution_of_family_size['1000-2000'] += 1
+            elif count <= 5000:
+                distribution_of_family_size['2000-5000'] += 1
+            elif count <= 10000:
+                distribution_of_family_size['5000-10000'] += 1
+            elif count <= 15000:
+                distribution_of_family_size['10000-15000'] += 1
+            else:
+                distribution_of_family_size['>15000'] += 1
+
+        cur.execute('select max_generation_depth, count(*) from family group by max_generation_depth')
+        distribution_of_generation_depth = {}
+        for max_generation_depth, count in cur:
+            distribution_of_generation_depth[max_generation_depth] = count
+
+        stats = dict(
+            person_count=person_count,
+            gender_distribution=gender_distribution,
+            distribution_of_family_size=distribution_of_family_size,
+            max_family_size=max_family_size,
+            distribution_of_generation_depth=distribution_of_generation_depth,
+        )
+
         cur.execute('''
         select f.id, f.max_generation_depth, p.name, count(f.id) as person_count
         from family f
@@ -279,7 +337,8 @@ def start_image_server():
         group by f.id
         having person_count > 2
         order by f.max_generation_depth desc, person_count desc''')
-        return flask.render_template('index.html', rows=cur)
+
+        return flask.render_template('index.html', rows=cur, statistics=stats)
 
     @app.route('/familytree/<family_id>')
     def familytree(family_id):
