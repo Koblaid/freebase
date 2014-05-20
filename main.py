@@ -271,9 +271,6 @@ def start_image_server():
 
     @app.route('/')
     def index():
-        cur.execute('select count(*) from person')
-        person_count = cur.fetchone()[0]
-
         distribution_of_family_size = Counter()
         cur.execute('select count(f.id) as cnt from family f join family_member fm on f.id = fm.family_id group by f.id')
         rows = cur.fetchall()
@@ -338,7 +335,10 @@ def start_image_server():
 
     @app.route('/stats')
     def stats():
-        return flask.render_template('stats.html')
+        cur = get_db_connection().cursor()
+        cur.execute('select count(*) from person')
+        person_count = cur.fetchone()[0]
+        return flask.render_template('stats.html', person_count=person_count)
 
     @app.route('/json/stats/gender')
     def json_stats_gender():
