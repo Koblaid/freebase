@@ -25,15 +25,15 @@
         series: [{ type: 'pie' }]
       });
 
-      var chart = $("#gender-chart").highcharts();
-      chart.showLoading();
+      var genderChart = $("#gender-chart").highcharts();
+      genderChart.showLoading();
       $.ajax('/json/stats/gender').done(function(data){
         var seriesData = [];
         for (var genderName in data.data){
           seriesData.push([genderName, data.data[genderName]]);
         }
-        chart.series[0].setData(seriesData);
-        chart.hideLoading();
+        genderChart.series[0].setData(seriesData);
+        genderChart.hideLoading();
       });
     }
   </script>
