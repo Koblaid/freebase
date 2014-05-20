@@ -271,12 +271,42 @@ def start_image_server():
 
     @app.route('/')
     def index():
-        distribution_of_family_size = Counter()
-        cur.execute('select count(f.id) as cnt from family f join family_member fm on f.id = fm.family_id group by f.id')
-        rows = cur.fetchall()
+        cur = get_db_connection().cursor()
+        cur.execute('''
+        select f.id, f.max_generation_depth, p.name, count(f.id) as person_count
+        from family f
+        join person p on f.ancestor_id = p.id
+        join family_member fm on f.id = fm.family_id
+        group by f.id
+        having person_count > 2
+        order by f.max_generation_depth desc, person_count desc''')
 
+        return flask.render_template('index.html', rows=cur)
+
+    @app.route('/familytree/<family_id>')
+    def familytree(family_id):
+        return flask.render_template('familytree.html')
+
+    @app.route('/stats')
+    def stats():
+        cur = get_db_connection().cursor()
+        cur.execute('select count(*) from person')
+        person_count = cur.fetchone()[0]
+
+        cur.execute('select max_generation_depth, count(*) from family group by max_generation_depth')
+        dist_dict = {}
+        for max_generation_depth, count in cur:
+            dist_dict[max_generation_depth] = count
+        distribution_of_generation = []
+        for i in range(max(dist_dict), 1, -1):
+            distribution_of_generation.append((i, dist_dict.get(i, 0)))
+
+        distribution_of_family_size = Counter()
+        cur.execute('''
+            select count(f.id) as cnt from family f join family_member fm on f.id = fm.family_id group by f.id''')
+        # Attention: The following code is as bad as it gets ;-)
         max_family_size = 0
-        for (count, ) in rows:
+        for (count, ) in cur:
             max_family_size = max(max_family_size, count)
             if count <= 10:
                 distribution_of_family_size[count] += 1
@@ -304,47 +334,18 @@ def start_image_server():
                 distribution_of_family_size['10000-15000'] += 1
             else:
                 distribution_of_family_size['>15000'] += 1
-
-        stats = dict(
-            person_count=person_count,
-            gender_distribution=gender_distribution,
-            distribution_of_family_size=distribution_of_family_size,
-            max_family_size=max_family_size,
-            distribution_of_generation_depth=distribution_of_generation_depth,
-        )
-
-        cur.execute('''
-        select f.id, f.max_generation_depth, p.name, count(f.id) as person_count
-        from family f
-        join person p on f.ancestor_id = p.id
-        join family_member fm on f.id = fm.family_id
-        group by f.id
-        having person_count > 2
-        order by f.max_generation_depth desc, person_count desc''')
-
-        return flask.render_template('index.html', rows=cur, statistics=stats)
-
-    @app.route('/familytree/<family_id>')
-    def familytree(family_id):
-        return flask.render_template('familytree.html')
-
-    @app.route('/stats')
-    def stats():
-        cur = get_db_connection().cursor()
-        cur.execute('select count(*) from person')
-        person_count = cur.fetchone()[0]
-
-        cur.execute('select max_generation_depth, count(*) from family group by max_generation_depth')
-        dist_dict = {}
-        for max_generation_depth, count in cur:
-            dist_dict[max_generation_depth] = count
-        distribution_of_generation = []
-        for i in range(max(dist_dict), 1, -1):
-            distribution_of_generation.append((i, dist_dict.get(i, 0)))
+        order = [i for i in range(1, 10)]
+        order += ['10-15', '15-20', '20-50', '50-100', '100-200', '200-500',
+                 '500-1000', '1000-2000', '2000-5000', '5000-10000', '10000-15000']
+        distribution_of_family_size_list = []
+        for o in order:
+            distribution_of_family_size_list.append([o, distribution_of_family_size[o]])
 
         return flask.render_template('stats.html',
                                      person_count=person_count,
-                                     distribution_of_generation=distribution_of_generation)
+                                     distribution_of_generation=distribution_of_generation,
+                                     distribution_of_family_size=distribution_of_family_size_list,
+                                     max_family_size=max_family_size)
 
     @app.route('/json/stats/gender')
     def json_stats_gender():

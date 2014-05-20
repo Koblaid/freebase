@@ -5,7 +5,9 @@
 
 <body onLoad="renderCharts();">
   <h1>Statistics</h1>
-  Number of persons: {{ "{:,d}".format(person_count) }}
+  Number of persons: {{ "{:,d}".format(person_count) }}<br>
+  Biggest family: {{ "{:,d}".format(max_family_size) }} persons
+
   <h2>Gender</h2>
   <div id="gender-chart"></div>
 
@@ -18,10 +20,25 @@
     {% for dist in distribution_of_generation %}
     <tr>
       <td>{{ dist.0 }}</td>
+      <td>{{ "{:,d}".format(dist.1) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <h2>Number of persons per family</h2>
+  <table border="1px">
+    <tr>
+      <th>Number of persons</th>
+      <th>Number of families</th>
+    </tr>
+    {% for dist in distribution_of_family_size %}
+    <tr>
+      <td>{{ dist.0 }}</td>
       <td>{{ dist.1 }}</td>
     </tr>
     {% endfor %}
   </table>
+
 
   <script>
     function renderCharts() {
