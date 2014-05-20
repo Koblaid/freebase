@@ -348,7 +348,7 @@ def start_image_server():
         total = sum((row[1] for row in rows))
         gender_distribution = {}
         for gender, count in rows:
-            gender_distribution[gender or 'None'] = count# round(count*100/total, 2)
+            gender_distribution[gender or 'None'] = count
         return flask.jsonify(data=gender_distribution)
 
     @app.route('/json/familytree/<family_id>')
@@ -376,16 +376,6 @@ def start_image_server():
             label = '<div style="padding: 10px;"><a href="https://www.freebase.com%s">%s</a></div>' % (freebase_id, name.replace(' ', '<br>'))
             nodes.append(dict(id=person_id, value=dict(label=label)))
         return flask.jsonify(dict(nodes=nodes, edges=edges))
-
-
-    @app.route('/mega')
-    def mega():
-        return flask.render_template('mega.html')
-
-    @app.route('/megajson')
-    def megajson():
-        return flask.jsonify(json.load(open('testgen-with-names.json')))
-
 
     app.run(debug=True, host='0.0.0.0')
 
