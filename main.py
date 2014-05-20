@@ -305,11 +305,6 @@ def start_image_server():
             else:
                 distribution_of_family_size['>15000'] += 1
 
-        cur.execute('select max_generation_depth, count(*) from family group by max_generation_depth')
-        distribution_of_generation_depth = {}
-        for max_generation_depth, count in cur:
-            distribution_of_generation_depth[max_generation_depth] = count
-
         stats = dict(
             person_count=person_count,
             gender_distribution=gender_distribution,
@@ -338,7 +333,18 @@ def start_image_server():
         cur = get_db_connection().cursor()
         cur.execute('select count(*) from person')
         person_count = cur.fetchone()[0]
-        return flask.render_template('stats.html', person_count=person_count)
+
+        cur.execute('select max_generation_depth, count(*) from family group by max_generation_depth')
+        dist_dict = {}
+        for max_generation_depth, count in cur:
+            dist_dict[max_generation_depth] = count
+        distribution_of_generation = []
+        for i in range(max(dist_dict), 1, -1):
+            distribution_of_generation.append((i, dist_dict.get(i, 0)))
+
+        return flask.render_template('stats.html',
+                                     person_count=person_count,
+                                     distribution_of_generation=distribution_of_generation)
 
     @app.route('/json/stats/gender')
     def json_stats_gender():

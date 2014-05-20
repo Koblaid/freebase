@@ -9,6 +9,20 @@
   <h2>Gender</h2>
   <div id="gender-chart"></div>
 
+  <h2>Number of generations per family</h2>
+  <table border="1px">
+    <tr>
+      <th>Depth</th>
+      <th>Number of families</th>
+    </tr>
+    {% for dist in distribution_of_generation %}
+    <tr>
+      <td>{{ dist.0 }}</td>
+      <td>{{ dist.1 }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
   <script>
     function renderCharts() {
       $('#gender-chart').highcharts({
