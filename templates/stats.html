@@ -1,0 +1,39 @@
+<head>
+  <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+  <script src="http://code.highcharts.com/highcharts.js"></script>
+</head>
+
+<body onLoad="renderCharts();">
+  <h1>Statistics</h1>
+  <h2>Gender</h2>
+  <div id="gender-chart"></div>
+
+  <script>
+    function renderCharts() {
+      $('#gender-chart').highcharts({
+        chart: { width: 500 },
+        tooltip: { enabled: false },
+        title: { text: '' },
+        plotOptions: {
+          pie: {
+            dataLabels: {
+              format: '<b>{point.name}</b>: {point.y:,.0f} ({point.percentage:.1f} %)'
+            }
+          }
+        },
+        series: [{ type: 'pie' }]
+      });
+
+      var chart = $("#gender-chart").highcharts();
+      chart.showLoading();
+      $.ajax('/json/stats/gender').done(function(data){
+        var seriesData = [];
+        for (var genderName in data.data){
+          seriesData.push([genderName, data.data[genderName]]);
+        }
+        chart.series[0].setData(seriesData);
+        chart.hideLoading();
+      });
+    }
+  </script>
+</body>

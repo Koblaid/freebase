@@ -271,14 +271,6 @@ def start_image_server():
 
     @app.route('/')
     def index():
-        cur = get_db_connection().cursor()
-        cur.execute('select gender, count(*) from person group by gender')
-        rows = cur.fetchall()
-        total = sum((row[1] for row in rows))
-        gender_distribution = {}
-        for gender, count in rows:
-            gender_distribution[gender] = round(count*100/total)
-
         cur.execute('select count(*) from person')
         person_count = cur.fetchone()[0]
 
@@ -343,6 +335,21 @@ def start_image_server():
     @app.route('/familytree/<family_id>')
     def familytree(family_id):
         return flask.render_template('familytree.html')
+
+    @app.route('/stats')
+    def stats():
+        return flask.render_template('stats.html')
+
+    @app.route('/json/stats/gender')
+    def json_stats_gender():
+        cur = get_db_connection().cursor()
+        cur.execute('select gender, count(*) from person group by gender')
+        rows = cur.fetchall()
+        total = sum((row[1] for row in rows))
+        gender_distribution = {}
+        for gender, count in rows:
+            gender_distribution[gender or 'None'] = count# round(count*100/total, 2)
+        return flask.jsonify(data=gender_distribution)
 
     @app.route('/json/familytree/<family_id>')
     def json_familytree(family_id):
