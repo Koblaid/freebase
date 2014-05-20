@@ -215,7 +215,7 @@ def extract_generations(persons):
             # Use a set to prevent that the same relationship is added twice
             generation = set()
 
-            contained_persons = {}
+            contained_persons = set([ancestor])
 
             # start with depth 2 to account for the ancestor and the latest child
             persons_to_process = [(ancestor, set([ancestor]), 2)]
@@ -224,6 +224,7 @@ def extract_generations(persons):
 
                 person, parents, current_generation_depth = persons_to_process.pop()
                 parents.add(person)
+                contained_persons.add(person)
                 for relationship in person.children:
                     max_generation_depth = max(max_generation_depth, current_generation_depth)
                     child = relationship.child
@@ -234,14 +235,14 @@ def extract_generations(persons):
                             rel = child.remove_child(grand_child)
                             invalid_relationships.append(rel)
 
-                    contained_persons[person.db_id] = person.name
-                    contained_persons[child.db_id] = child.name
+                    contained_persons.add(child)
                     if relationship not in generation:
                         generation.add(relationship)
                         persons_to_process.append((child, parents.copy(), current_generation_depth+1))
 
             if len(generation) > 0:
-                generations[ancestor.db_id] = (max_generation_depth, generation)
+                person_count = len(contained_persons)
+                generations[ancestor.db_id] = (max_generation_depth, person_count, generation)
 
     return generations, invalid_relationships
 
@@ -250,12 +251,12 @@ def write_families_into_db(generations):
     counter = 0
     conn = get_db_connection()
     cur = conn.cursor()
-    for ancestor_id, (max_depth, relationships) in generations.items():
+    for ancestor_id, (max_depth, person_count, relationships) in generations.items():
         counter += 1
         print('%s / %s (%s%%)' % (counter, len(generations), counter*100/len(generations)))
 
-        stmt = 'insert into family (ancestor_id, max_generation_depth) values (?, ?)'
-        cur.execute(stmt, (ancestor_id, max_depth))
+        stmt = 'insert into family (ancestor_id, max_generation_depth, person_count) values (?, ?, ?)'
+        cur.execute(stmt, (ancestor_id, max_depth, person_count))
         family_id = cur.lastrowid
 
         for relationship in relationships:
@@ -273,14 +274,11 @@ def start_image_server():
     def index():
         cur = get_db_connection().cursor()
         cur.execute('''
-        select f.id, f.max_generation_depth, p.name, count(f.id) as person_count
+        select f.id, f.max_generation_depth, p.name, f.person_count
         from family f
         join person p on f.ancestor_id = p.id
-        join family_member fm on f.id = fm.family_id
-        group by f.id
-        having person_count > 2
-        order by f.max_generation_depth desc, person_count desc''')
-
+        where f.max_generation_depth > 3
+        order by f.max_generation_depth desc, f.person_count desc''')
         return flask.render_template('index.html', rows=cur)
 
     @app.route('/familytree/<family_id>')
@@ -302,8 +300,7 @@ def start_image_server():
             distribution_of_generation.append((i, dist_dict.get(i, 0)))
 
         distribution_of_family_size = Counter()
-        cur.execute('''
-            select count(f.id) as cnt from family f join family_member fm on f.id = fm.family_id group by f.id''')
+        cur.execute('select person_count from family')
         # Attention: The following code is as bad as it gets ;-)
         max_family_size = 0
         for (count, ) in cur:
@@ -330,13 +327,11 @@ def start_image_server():
                 distribution_of_family_size['2000-5000'] += 1
             elif count <= 10000:
                 distribution_of_family_size['5000-10000'] += 1
-            elif count <= 15000:
-                distribution_of_family_size['10000-15000'] += 1
             else:
-                distribution_of_family_size['>15000'] += 1
-        order = [i for i in range(1, 10)]
+                raise Exception()
+        order = [i for i in range(2, 10)]
         order += ['10-15', '15-20', '20-50', '50-100', '100-200', '200-500',
-                 '500-1000', '1000-2000', '2000-5000', '5000-10000', '10000-15000']
+                 '500-1000', '1000-2000', '2000-5000', '5000-10000']
         distribution_of_family_size_list = []
         for o in order:
             distribution_of_family_size_list.append([o, distribution_of_family_size[o]])

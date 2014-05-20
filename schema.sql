@@ -26,6 +26,7 @@ CREATE TABLE family (
     id INTEGER PRIMARY KEY,
     ancestor_id INTEGER NOT NULL,
     max_generation_depth INTEGER NOT NULL,
+    person_count INTEGER NOT NULL,
     FOREIGN KEY(ancestor_id) REFERENCES person(id)
 );
 
