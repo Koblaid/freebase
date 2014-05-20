@@ -291,7 +291,7 @@ def start_image_server():
         cur = conn.cursor()
         cur.execute('''
         select
-            p_parent.id, p_parent.name, p_child.id, p_child.name
+            p_parent.id, p_parent.name, p_parent.freebase_id, p_child.id, p_child.name, p_child.freebase_id
         from family f
         join family_member fm on f.id = fm.family_id
         join parent_child pc on pc.id = fm.parent_child_id
@@ -300,14 +300,15 @@ def start_image_server():
         where f.id = ?;''', (family_id,))
         persons = {}
         edges = []
-        for parent_id, parent_name, child_id, child_name in cur:
-            persons[parent_id] = parent_name.replace(' ', '\n')
-            persons[child_id] = child_name.replace(' ', '\n')
+        for parent_id, parent_name, parent_freebase_id, child_id, child_name, child_freebase_id in cur:
+            persons[parent_id] = (parent_name, parent_freebase_id)
+            persons[child_id] = (child_name, child_freebase_id)
             edges.append(dict(u=parent_id, v=child_id))
 
         nodes = []
-        for person_id, name in persons.items():
-            nodes.append(dict(id=person_id, value=dict(label=name)))
+        for person_id, (name, freebase_id) in persons.items():
+            label = '<div style="padding: 10px;"><a href="https://www.freebase.com%s">%s</a></div>' % (freebase_id, name.replace(' ', '<br>'))
+            nodes.append(dict(id=person_id, value=dict(label=label)))
         return flask.jsonify(dict(nodes=nodes, edges=edges))
 
 
