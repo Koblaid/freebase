@@ -6,13 +6,18 @@ import flask
 app = flask.Flask(__name__)
 
 
-DATABASE = '../db.sqlite'
+def add_file_logger(filename):
+    import logging
+    import logging.handlers
+    file_handler = logging.handlers.RotatingFileHandler(filename)
+    file_handler.setLevel(logging.WARNING)
+    app.logger.addHandler(file_handler)
 
 
 def get_db_connection():
     conn = getattr(flask.g, '_database', None)
     if conn is None:
-        conn = flask.g._database = sqlite3.connect(DATABASE)
+        conn = flask.g._database = sqlite3.connect(app.config['DATABASE'])
         # Enable foreign keys in sqlite
         conn.execute('PRAGMA foreign_keys = ON')
     return conn
@@ -141,4 +146,5 @@ def json_familytree(family_id):
 
 import sys
 if sys.argv == ['app.py', 'debug']:
+    app.config['DATABASE'] = '../db.sqlite'
     app.run(debug=True)
