@@ -19,3 +19,4 @@ except IOError:
     pass
 
 from app import app as application
+application.DATABASE = '../../data'
