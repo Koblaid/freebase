@@ -2,7 +2,6 @@ import ujson as json
 import os
 import sqlite3
 from pprint import pprint
-from collections import Counter
 
 import requests
 
