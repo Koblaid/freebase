@@ -2,10 +2,12 @@
 
 import os
 
-from app import app as application
+import app
 
+
+application = app.app
 
 application.config['DATABASE'] = os.path.join(os.environ['OPENSHIFT_DATA_DIR'], 'db.sqlite')
 
 logfile_path = os.path.join(os.environ['OPENSHIFT_LOG_DIR'], 'persons.log')
-application.add_file_logger(logfile_path)
+app.add_file_logger(logfile_path)
