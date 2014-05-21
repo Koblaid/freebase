@@ -6,12 +6,23 @@ import flask
 app = flask.Flask(__name__)
 
 
-def get_db_connection():
-    conn = sqlite3.connect('../db.sqlite')
+DATABASE = '../db.sqlite'
 
-    # Enable foreign keys in sqlite
-    conn.execute('PRAGMA foreign_keys = ON')
+
+def get_db_connection():
+    conn = getattr(flask.g, '_database', None)
+    if conn is None:
+        conn = flask.g._database = sqlite3.connect(DATABASE)
+        # Enable foreign keys in sqlite
+        conn.execute('PRAGMA foreign_keys = ON')
     return conn
+
+
+@app.teardown_appcontext
+def close_connection(exception):
+    conn = getattr(flask.g, '_database', None)
+    if conn is not None:
+        conn.close()
 
 
 @app.route('/')
