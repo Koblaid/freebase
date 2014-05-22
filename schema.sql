@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS person (
     id INTEGER PRIMARY KEY,
-    name TEXT, gender TEXT,
+    name TEXT,
+    gender TEXT,
     freebase_id TEXT NOT NULL,
     UNIQUE(freebase_id)
 );
