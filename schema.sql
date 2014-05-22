@@ -1,11 +1,11 @@
-CREATE TABLE person (
+CREATE TABLE IF NOT EXISTS person (
     id INTEGER PRIMARY KEY,
     name TEXT, gender TEXT,
     freebase_id TEXT NOT NULL,
     UNIQUE(freebase_id)
 );
 
-CREATE TABLE parent_child (
+CREATE TABLE IF NOT EXISTS parent_child (
     id INTEGER PRIMARY KEY,
     parent_id INTEGER NOT NULL,
     child_id INTEGER NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE parent_child (
     UNIQUE(parent_id, child_id)
 );
 
-CREATE TABLE spouse (
+CREATE TABLE IF NOT EXISTS spouse (
     person1 INTEGER NOT NULL,
     person2 INTEGER NOT NULL,
     FOREIGN KEY(person1) REFERENCES person(id),
@@ -22,7 +22,7 @@ CREATE TABLE spouse (
     UNIQUE(person1, person2)
 );
 
-CREATE TABLE family (
+CREATE TABLE IF NOT EXISTS family (
     id INTEGER PRIMARY KEY,
     ancestor_id INTEGER NOT NULL,
     max_generation_depth INTEGER NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE family (
     FOREIGN KEY(ancestor_id) REFERENCES person(id)
 );
 
-CREATE TABLE family_member (
+CREATE TABLE IF NOT EXISTS family_member (
     id INTEGER PRIMARY KEY,
     family_id INTEGER NOT NULL,
     parent_child_id INTEGER NOT NULL,
