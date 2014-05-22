@@ -19,7 +19,7 @@ CREATE TABLE spouse (
     person2 INTEGER NOT NULL,
     FOREIGN KEY(person1) REFERENCES person(id),
     FOREIGN KEY(person2) REFERENCES person(id),
-    UNIQUE(person1, person1)
+    UNIQUE(person1, person2)
 );
 
 CREATE TABLE family (
