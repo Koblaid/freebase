@@ -1,4 +1,4 @@
-import sqlite3
+import psycopg2
 from collections import Counter
 
 import flask
@@ -18,9 +18,14 @@ def add_file_logger(filename):
 def get_db_connection():
     conn = getattr(flask.g, '_database', None)
     if conn is None:
-        conn = flask.g._database = sqlite3.connect(app.config['DATABASE'])
-        # Enable foreign keys in sqlite
-        conn.execute('PRAGMA foreign_keys = ON')
+        conn = psycopg2.connect(
+            host=app.config['DATABASE_HOST'],
+            port=app.config['DATABASE_PORT'],
+            user=app.config['DATABASE_USER'],
+            password=app.config['DATABASE_PASSWORD'],
+            database=app.config['DATABASE_DATABASE'],
+        )
+        conn.cursor().execute('SET search_path TO persons, public')
     return conn
 
 
@@ -129,7 +134,7 @@ def json_familytree(family_id):
     join parent_child pc on pc.id = fm.parent_child_id
     join person p_parent on p_parent.id = pc.parent_id
     join person p_child on p_child.id = pc.child_id
-    where f.id = ?;''', (family_id,))
+    where f.id = %s''', (family_id,))
     persons = {}
     edges = []
     for parent_id, parent_name, parent_freebase_id, child_id, child_name, child_freebase_id in cur:
@@ -147,5 +152,9 @@ def json_familytree(family_id):
 
 import sys
 if sys.argv == ['app.py', 'debug']:
-    app.config['DATABASE'] = '../db.sqlite'
+    app.config['DATABASE_HOST'] = 'localhost'
+    app.config['DATABASE_PORT'] = 5432
+    app.config['DATABASE_USER'] = 'persons'
+    app.config['DATABASE_PASSWORD'] = None
+    app.config['DATABASE_DATABASE'] = None
     app.run(debug=True)

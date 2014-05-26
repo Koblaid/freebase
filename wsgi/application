@@ -7,7 +7,11 @@ import app
 
 application = app.app
 
-application.config['DATABASE'] = os.path.join(os.environ['OPENSHIFT_DATA_DIR'], 'db.sqlite')
+application.config['DATABASE_HOST'] = os.environ['OPENSHIFT_POSTGRESQL_DB_HOST']
+application.config['DATABASE_PORT'] = os.environ['OPENSHIFT_POSTGRESQL_DB_PORT']
+application.config['DATABASE_USER'] = 'persons'
+application.config['DATABASE_PASSWORD'] = os.environ['OPENSHIFT_POSTGRESQL_DB_HOST']
+application.config['DATABASE_DATABASE'] = os.environ['PGDATABASE']
 
 logfile_path = os.path.join(os.environ['OPENSHIFT_LOG_DIR'], 'persons.log')
 app.add_file_logger(logfile_path)

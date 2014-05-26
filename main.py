@@ -1,10 +1,31 @@
 import ujson as json
 import os
-import sqlite3
+import psycopg2
 from pprint import pprint
 
 import requests
 
+
+# http://eatthedots.blogspot.de/2008/08/faking-read-support-for-psycopgs.html
+class IteratorToFile:
+    def __init__(self, iterator, template):
+        self._iterator = iterator
+        self._template = template
+
+    def readline(self, size=None):
+        try:
+            try:
+                line = next(self._iterator)
+            except StopIteration:
+                #print('return stopiteration')
+                return ''
+            else:
+                return self._template % line
+        except Exception as e:
+            print(line)
+            print(e)
+
+    read = readline
 
 
 def try_up_to_x_times(retries, func, *args, **kwargs):
@@ -64,44 +85,76 @@ def fetch_all_people():
 
 
 def get_db_connection():
-    conn = sqlite3.connect('db.sqlite')
-
-    # Enable foreign keys in sqlite
-    conn.execute('PRAGMA foreign_keys = ON')
+    conn = psycopg2.connect(host='localhost', user='postgres', database='persons')
+    conn.cursor().execute('SET search_path TO persons, public')
     return conn
 
 
-def import_into_sqlite():
-    conn = get_db_connection()
+def drop_schema():
+    if input('Really drop schema [y|N]?') == 'y':
+        conn = get_db_connection()
+        conn.cursor().execute('DROP SCHEMA persons CASCADE')
+        conn.commit()
+        conn.close()
+        print('Schema dropped')
+    else:
+        print('Cancelled')
 
-    # Execute the create script
-    sql = open('schema.sql').read()
-    conn.executescript(sql)
+
+def create_schema():
+    conn = get_db_connection()
+    conn.cursor().execute(open("schema.sql", "r").read())
+    conn.commit()
+    conn.close()
+
+
+def _format_for_copy(value):
+    if value is None:
+        return '\\N'
+    else:
+        return value.replace('\t', r'\\t').replace('\n', r'\\n')
+
+
+def _iter_persons(freebase_id_to_db_id):
+    person_id = 1000
+    for filename in sorted(os.listdir('json')):
+        print('Inserting persons:', filename)
+        content = json.load(open('json/' + filename))['result']
+
+        for person in content:
+            name = _format_for_copy(person['name'])
+            gender = _format_for_copy(person['gender'])
+            freebase_id = _format_for_copy(person['id'])
+            yield (person_id, name, gender, freebase_id)
+            freebase_id_to_db_id[person['id']] = person_id
+            person_id += 1
+
+
+def _iter_relationship(freebase_id_to_db_id, unimportable_parents):
+    for filename in sorted(os.listdir('json')):
+        print('Inserting relationships:', filename)
+        content = json.load(open('json/' + filename))['result']
+        for person in content:
+            for parent in person['parents']:
+                if parent['id'] not in freebase_id_to_db_id:
+                    print(parent)
+                    unimportable_parents.append(parent)
+                else:
+                    yield (freebase_id_to_db_id[parent['id']], freebase_id_to_db_id[person['id']])
+
+
+def import_into_db():
+    conn = get_db_connection()
 
     cur = conn.cursor()
     freebase_id_to_db_id = {}
-    for filename in sorted(os.listdir('json')):
-        print('Inserting persons:', filename)
-        with open('json/' + filename) as f:
-            content = json.load(f)['result']
-            for person in content:
-                cur.execute('INSERT INTO person (name, gender, freebase_id) VALUES (?, ?, ?)',
-                            (person['name'], person['gender'], person['id']))
-                freebase_id_to_db_id[person['id']] = cur.lastrowid
+
+    streamer = IteratorToFile(_iter_persons(freebase_id_to_db_id), '%i\t"%s"\t"%s"\t"%s"\n')
+    cur.copy_from(streamer, 'person', columns=['id', 'name', 'gender', 'freebase_id'])
 
     unimportable_parents = []
-    for filename in sorted(os.listdir('json')):
-        print('Inserting relationships:', filename)
-        with open('json/' + filename) as f:
-            content = json.load(f)['result']
-            for person in content:
-                for parent in person['parents']:
-                    if parent['id'] not in freebase_id_to_db_id:
-                        print(parent)
-                        unimportable_parents.append(parent)
-                    else:
-                        cur.execute('INSERT INTO parent_child (parent_id, child_id) VALUES (?, ?)',
-                                    (freebase_id_to_db_id[parent['id']], freebase_id_to_db_id[person['id']]))
+    streamer = IteratorToFile(_iter_relationship(freebase_id_to_db_id, unimportable_parents), '%i\t%i\n')
+    cur.copy_from(streamer, 'parent_child', columns=['parent_id', 'child_id'])
 
     print('unimportable parents:')
     pprint(unimportable_parents)
@@ -252,14 +305,16 @@ def write_families_into_db(generations):
     cur = conn.cursor()
     for ancestor_id, (max_depth, person_count, relationships) in generations.items():
         counter += 1
-        print('%s / %s (%s%%)' % (counter, len(generations), counter*100/len(generations)))
+        print('%s / %s (%s%%)' % (counter, len(generations), round(counter*100/len(generations), 2)))
 
-        stmt = 'insert into family (ancestor_id, max_generation_depth, person_count) values (?, ?, ?)'
+        stmt = 'insert into family (ancestor_id, max_generation_depth, person_count) values (%s, %s, %s) returning id'
         cur.execute(stmt, (ancestor_id, max_depth, person_count))
-        family_id = cur.lastrowid
+        family_id = cur.fetchone()[0]
 
-        for relationship in relationships:
-            stmt = 'insert into family_member (family_id, parent_child_id) values (?, ?)'
-            cur.execute(stmt, (family_id, relationship.db_id))
+        iter_parent_child = ((family_id, relationship.db_id) for relationship in relationships)
+
+        streamer = IteratorToFile(iter_parent_child, '%i\t%i\n')
+        cur.copy_from(streamer, 'family_member', columns=['family_id', 'parent_child_id'])
 
     conn.commit()
+    conn.close()

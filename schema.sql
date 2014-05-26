@@ -1,3 +1,5 @@
+CREATE SCHEMA persons;
+
 CREATE TABLE IF NOT EXISTS person (
     id INTEGER PRIMARY KEY,
     name TEXT,
@@ -7,7 +9,7 @@ CREATE TABLE IF NOT EXISTS person (
 );
 
 CREATE TABLE IF NOT EXISTS parent_child (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     parent_id INTEGER NOT NULL,
     child_id INTEGER NOT NULL,
     FOREIGN KEY(parent_id) REFERENCES person(id),
@@ -24,7 +26,7 @@ CREATE TABLE IF NOT EXISTS spouse (
 );
 
 CREATE TABLE IF NOT EXISTS family (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     ancestor_id INTEGER NOT NULL,
     max_generation_depth INTEGER NOT NULL,
     person_count INTEGER NOT NULL,
@@ -32,7 +34,7 @@ CREATE TABLE IF NOT EXISTS family (
 );
 
 CREATE TABLE IF NOT EXISTS family_member (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     family_id INTEGER NOT NULL,
     parent_child_id INTEGER NOT NULL,
     FOREIGN KEY(family_id) REFERENCES family(id),
