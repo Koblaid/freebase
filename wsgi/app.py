@@ -144,8 +144,22 @@ def json_familytree(family_id):
     return flask.jsonify(dict(nodes=nodes, edges=edges))
 
 
-
-import sys
-if sys.argv == ['app.py', 'debug']:
+if __name__ == '__main__':
     app.config['DATABASE'] = '../db.sqlite'
     app.run(debug=True)
+
+else:
+    import os
+    import logging
+
+    data_path = os.environ['DATA_PATH']
+
+    file_handler = logging.FileHandler(os.path.join(data_path, 'freebase.log'))
+    file_handler.setLevel(logging.WARNING)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s '
+        '[in %(pathname)s:%(lineno)d]'
+    ))
+
+    app.logger.addHandler(file_handler)
+    app.config['DATABASE'] = os.path.join(data_path, 'freebase.sqlite')
