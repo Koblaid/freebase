@@ -1,4 +1,4 @@
-<a href="/stats">Statistics</a>
+<a href="{{ url_for('stats') }}">Statistics</a>
 <table>
   <tr>
     <th>Persons</th>
@@ -10,7 +10,7 @@
     <tr>
       <td>{{ person_count }}</td>
       <td>{{ max_generation_depth }}</td>
-      <td><a href="/familytree/{{ family_id }}">{{ name }}</a></td>
+      <td><a href="{{ url_for('familytree', family_id=family_id) }}">{{ name }}</a></td>
     </tr>
   {% endfor %}
 

@@ -4,6 +4,10 @@
   <script src="http://cpettitt.github.io/project/dagre-d3/latest/dagre-d3.js"></script>
   <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
 
+  <script type=text/javascript>
+    $SCRIPT_ROOT = {{ request.script_root|tojson }};
+  </script>
+
   <style>
   svg {
     border: 1px solid black;
@@ -47,7 +51,7 @@
   <script>
     function draw() {
       var family_id = document.URL.substr(document.URL.lastIndexOf('/')+1)
-      $.ajax('/json/familytree/'+family_id).done(function(data){
+      $.ajax($SCRIPT_ROOT+'/json/familytree/'+family_id).done(function(data){
         var renderer = new dagreD3.Renderer();
         var oldDrawNodes = renderer.drawNodes();
         renderer.drawNodes(function(graph, root) {
