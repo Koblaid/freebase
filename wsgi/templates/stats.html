@@ -1,6 +1,10 @@
 <head>
   <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
   <script src="http://code.highcharts.com/highcharts.js"></script>
+
+  <script type=text/javascript>
+    $SCRIPT_ROOT = {{ request.script_root|tojson }};
+  </script>
 </head>
 
 <body onLoad="renderCharts();">
@@ -58,7 +62,7 @@
 
       var genderChart = $("#gender-chart").highcharts();
       genderChart.showLoading();
-      $.ajax('/json/stats/gender').done(function(data){
+      $.ajax($SCRIPT_ROOT+'/json/stats/gender').done(function(data){
         var seriesData = [];
         for (var genderName in data.data){
           seriesData.push([genderName, data.data[genderName]]);
